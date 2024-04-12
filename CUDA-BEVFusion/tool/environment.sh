@@ -22,23 +22,24 @@
 
 # export CUDA_VISIBLE_DEVICES=2
 
-export TensorRT_Lib=/path/to/TensorRT/lib
-export TensorRT_Inc=/path/to/TensorRT/include
-export TensorRT_Bin=/usr/src/tensorrt/bin
+export TensorRT_Lib=/home/gpal/disk/softwares/nvidia/TensorRT-8.6.1.6/lib
+export TensorRT_Inc=/home/gpal/disk/softwares/nvidia/TensorRT-8.6.1.6/include
+export TensorRT_Bin=/home/gpal/disk/softwares/nvidia/TensorRT-8.6.1.6/bin
 
-export CUDA_Lib=/usr/local/cuda/lib64
-export CUDA_Inc=/usr/local/cuda/include
-export CUDA_Bin=/usr/local/cuda/bin
-export CUDA_HOME=/usr/local/cuda
+export CUDA_Lib=/usr/local/cuda-11.4/lib64
+export CUDA_Inc=/usr/local/cuda-11.4/include
+export CUDA_Bin=/usr/local/cuda-11.4/bin
+export CUDA_HOME=/usr/local/cuda-11.4
 
-export CUDNN_Lib=/path/to/cudnn/lib
+export CUDNN_Lib=/media/gpal/8e78e258-6a68-4733-8ec2-b837743b11e6/softwares/nvidia/cudnn-linux-x86_64-8.8.1.3_cuda11-archive/lib
 
 
 # resnet50/resnet50int8/swint
-export DEBUG_MODEL=resnet50int8
+export DEBUG_MODEL=seg_camera_only_resnet50
+# export DEBUG_MODEL=resnet50
 
 # fp16/int8
-export DEBUG_PRECISION=int8
+export DEBUG_PRECISION=fp16
 export DEBUG_DATA=example-data
 export USE_Python=OFF
 

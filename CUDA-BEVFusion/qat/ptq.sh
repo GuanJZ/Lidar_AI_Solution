@@ -1,0 +1,1 @@
+python qat/ptq_for_fp16.py --config bevfusion/configs/nuscenes/seg/camera-bev-resnet50.yaml --ckpt model/seg_camera_only_resnet50/seg_camera_only_resnet50.pth --save_path model/seg_camera_only_resnet50/seg_camera_only_resnet50_fp16.pth

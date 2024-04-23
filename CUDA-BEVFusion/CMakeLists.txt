@@ -23,8 +23,8 @@ cmake_minimum_required(VERSION 2.8.12)
 project(bevfusion)
 
 set(CMAKE_BUILD_PYTHON $ENV{USE_Python})
-set(CMAKE_BUILD_TYPE "Release")
-# set(CMAKE_BUILD_TYPE "Debug")
+# set(CMAKE_BUILD_TYPE "Release")
+set(CMAKE_BUILD_TYPE "Debug")
 set(arch ${CMAKE_HOST_SYSTEM_PROCESSOR})
 
 find_package(CUDA REQUIRED)
@@ -49,29 +49,29 @@ include_directories(
   ../dependencies/pybind11/include
   ../libraries/cuOSD/src
   ../libraries/3DSparseConvolution/libspconv/include
-  src/common
-  src/
+  src_seg/common
+  src_seg/
 )
 
 link_directories(
   $ENV{CUDA_Lib}
   $ENV{TensorRT_Lib}
   ../libraries/3DSparseConvolution/libspconv/lib/${arch}
-  build
+  build_seg
   $ENV{Python_Lib}
 )
 
 file(GLOB_RECURSE CORE_FILES 
-  src/bevfusion/*.cu 
-  src/bevfusion/*.cpp
-  src/common/tensor.cu
-  src/common/tensorrt.cpp
+src_seg/bevfusion/*.cu 
+src_seg/bevfusion/*.cpp
+src_seg/common/tensor.cu
+src_seg/common/tensorrt.cpp
 )
 
 file(GLOB_RECURSE VISUALIZE_FILES 
   ../libraries/cuOSD/src/*.cpp
   ../libraries/cuOSD/src/*.cu
-  src/common/visualize.cu
+  src_seg/common/visualize.cu
 )
 
 ####################### libbevfusion_core.so ##########################
@@ -92,7 +92,7 @@ target_link_libraries(bevfusion_core
 
 ####################### bevfusion program #############################
 cuda_add_executable(bevfusion 
-  src/main.cpp
+src_seg/main.cpp
   ${VISUALIZE_FILES}
 )
 
@@ -109,7 +109,7 @@ target_link_libraries(bevfusion
 ########################## libpybev.so ################################
 if(${CMAKE_BUILD_PYTHON} STREQUAL "ON")
   cuda_add_library(pybev SHARED
-    src/python.cpp
+  src_seg/python.cpp
   )
 
   target_link_libraries(pybev

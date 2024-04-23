@@ -21,15 +21,15 @@
 # DEALINGS IN THE SOFTWARE.
 
 # export CUDA_VISIBLE_DEVICES=2
+export TensorRT_HOME=/home/gpal/disk/softwares/nvidia/TensorRT-8.6.1.6
+export TensorRT_Lib=$TensorRT_HOME/lib
+export TensorRT_Inc=$TensorRT_HOME/include
+export TensorRT_Bin=$TensorRT_HOME/bin
 
-export TensorRT_Lib=/home/gpal/disk/softwares/nvidia/TensorRT-8.6.1.6/lib
-export TensorRT_Inc=/home/gpal/disk/softwares/nvidia/TensorRT-8.6.1.6/include
-export TensorRT_Bin=/home/gpal/disk/softwares/nvidia/TensorRT-8.6.1.6/bin
-
-export CUDA_Lib=/usr/local/cuda-11.4/lib64
-export CUDA_Inc=/usr/local/cuda-11.4/include
-export CUDA_Bin=/usr/local/cuda-11.4/bin
 export CUDA_HOME=/usr/local/cuda-11.4
+export CUDA_Lib=$CUDA_HOME/lib64
+export CUDA_Inc=$CUDA_HOME/include
+export CUDA_Bin=$CUDA_HOME/bin
 
 export CUDNN_Lib=/media/gpal/8e78e258-6a68-4733-8ec2-b837743b11e6/softwares/nvidia/cudnn-linux-x86_64-8.8.1.3_cuda11-archive/lib
 

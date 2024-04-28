@@ -161,57 +161,38 @@ std::shared_ptr<bevfusion::Core> create_core(const std::string& model, const std
   float std[3] = {0.229, 0.224, 0.225};
   normalization.method = bevfusion::camera::NormMethod::mean_std(mean, std, 1 / 255.0f, 0.0f);
 
-  bevfusion::lidar::VoxelizationParameter voxelization;
-  voxelization.min_range = nvtype::Float3(-54.0f, -54.0f, -5.0);
-  voxelization.max_range = nvtype::Float3(+54.0f, +54.0f, +3.0);
-  voxelization.voxel_size = nvtype::Float3(0.075f, 0.075f, 0.2f);
-  voxelization.grid_size =
-      voxelization.compute_grid_size(voxelization.max_range, voxelization.min_range, voxelization.voxel_size);
-  voxelization.max_points_per_voxel = 10;
-  voxelization.max_points = 300000;
-  voxelization.max_voxels = 160000;
-  voxelization.num_feature = 5;
 
-  bevfusion::lidar::SCNParameter scn;
-  scn.voxelization = voxelization;
-  scn.model = nv::format("model/%s/lidar.backbone.xyz.onnx", model.c_str());
-  scn.order = bevfusion::lidar::CoordinateOrder::XYZ;
-
-  if (precision == "int8") {
-    scn.precision = bevfusion::lidar::Precision::Int8;
-  } else {
-    scn.precision = bevfusion::lidar::Precision::Float16;
-  }
-
+  // 这里和训练框架是不一一样的
+  // xbound: [-51.2, 51.2, 0.4]
+  // ybound: [-51.2, 51.2, 0.4]
   bevfusion::camera::GeometryParameter geometry;
-  geometry.xbound = nvtype::Float3(-54.0f, 54.0f, 0.3f);
-  geometry.ybound = nvtype::Float3(-54.0f, 54.0f, 0.3f);
+  geometry.xbound = nvtype::Float3(-51.2f, 51.2f, 0.4f);
+  geometry.ybound = nvtype::Float3(-51.2f, 51.2f, 0.4f);
+
   geometry.zbound = nvtype::Float3(-10.0f, 10.0f, 20.0f);
   geometry.dbound = nvtype::Float3(1.0, 60.0f, 0.5f);
+
+  // 训练框架里面是 [height, weidth]
+  // [256, 704]
+  // [32, 88]
   geometry.image_width = 704;
   geometry.image_height = 256;
   geometry.feat_width = 88;
   geometry.feat_height = 32;
   geometry.num_camera = 6;
-  geometry.geometry_dim = nvtype::Int3(360, 360, 80);
+  // bevpool输出feature尺寸
+  // (360, 360, 80) -> (256, 256, 80)
+  geometry.geometry_dim = nvtype::Int3(256, 256, 80);
 
-  bevfusion::head::transbbox::TransBBoxParameter transbbox;
-  transbbox.out_size_factor = 8;
-  transbbox.pc_range = {-54.0f, -54.0f};
-  transbbox.post_center_range_start = {-61.2, -61.2, -10.0};
-  transbbox.post_center_range_end = {61.2, 61.2, 10.0};
-  transbbox.voxel_size = {0.075, 0.075};
-  transbbox.model = nv::format("model/%s/build/head.bbox.plan", model.c_str());
-  transbbox.confidence_threshold = 0.12f;
-  transbbox.sorted_bboxes = true;
-
+  // 统计模块参数
   bevfusion::CoreParameter param;
   param.camera_model = nv::format("model/%s/build/camera.backbone.plan", model.c_str());
   param.normalize = normalization;
-  param.lidar_scn = scn;
+
   param.geometry = geometry;
+
   param.transfusion = nv::format("model/%s/build/fuser.plan", model.c_str());
-  param.transbbox = transbbox;
+
   param.camera_vtransform = nv::format("model/%s/build/camera.vtransform.plan", model.c_str());
   return bevfusion::create_core(param);
 }
@@ -219,8 +200,8 @@ std::shared_ptr<bevfusion::Core> create_core(const std::string& model, const std
 int main(int argc, char** argv) {
 
   const char* data      = "example-data";
-  const char* model     = "resnet50int8";
-  const char* precision = "int8";
+  const char* model     = "seg_camera_only_resnet50";
+  const char* precision = "fp16";
 
   if (argc > 1) data      = argv[1];
   if (argc > 2) model     = argv[2];
@@ -255,13 +236,13 @@ int main(int argc, char** argv) {
   auto bboxes =
       core->forward((const unsigned char**)images.data(), lidar_points.ptr<nvtype::half>(), lidar_points.size(0), stream);
 
-  // evaluate inference time
-  for (int i = 0; i < 5; ++i) {
-    core->forward((const unsigned char**)images.data(), lidar_points.ptr<nvtype::half>(), lidar_points.size(0), stream);
-  }
+  // // evaluate inference time
+  // for (int i = 0; i < 5; ++i) {
+  //   core->forward((const unsigned char**)images.data(), lidar_points.ptr<nvtype::half>(), lidar_points.size(0), stream);
+  // }
 
-  // visualize and save to jpg
-  visualize(bboxes, lidar_points, images, lidar2image, "build_seg/cuda-bevfusion.jpg", stream);
+  // // visualize and save to jpg
+  // visualize(bboxes, lidar_points, images, lidar2image, "build_seg/cuda-bevfusion.jpg", stream);
 
   // destroy memory
   free_images(images);

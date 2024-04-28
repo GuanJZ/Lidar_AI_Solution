@@ -44,8 +44,12 @@ class BackboneImplement : public Backbone {
     engine_ = TensorRT::load(model);
     if (engine_ == nullptr) return false;
 
-    depth_dims_ = engine_->static_dims(2);
-    feature_dims_ = engine_->static_dims(3);
+    printf("num of bindings : %d\n", engine_->num_bindings());
+
+    // 这里修改为 engine_->static_dims(1); engine_->static_dims(2);
+    // 因为一个输入，两个输出；
+    depth_dims_ = engine_->static_dims(1);
+    feature_dims_ = engine_->static_dims(2);
     int32_t volumn = std::accumulate(depth_dims_.begin(), depth_dims_.end(), 1, std::multiplies<int32_t>());
     checkRuntime(cudaMalloc(&depth_weights_, volumn * sizeof(nvtype::half)));
 
@@ -53,14 +57,15 @@ class BackboneImplement : public Backbone {
     checkRuntime(cudaMalloc(&feature_, volumn * sizeof(nvtype::half)));
 
     // N C D H W
+    // [6, 88, 118, 80, 32]
     camera_shape_ = {feature_dims_[0], feature_dims_[3], depth_dims_[1], feature_dims_[1], feature_dims_[2]};
     return true;
   }
 
   virtual void print() override { engine_->print("Camerea Backbone"); }
 
-  virtual void forward(const nvtype::half* images, const nvtype::half* depth, void* stream = nullptr) override {
-    engine_->forward({images, depth, depth_weights_, feature_}, static_cast<cudaStream_t>(stream));
+  virtual void forward(const nvtype::half* images, void* stream = nullptr) override {
+    engine_->forward({images, depth_weights_, feature_}, static_cast<cudaStream_t>(stream));
   }
 
   virtual nvtype::half* depth() override { return depth_weights_; }

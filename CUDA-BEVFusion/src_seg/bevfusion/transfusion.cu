@@ -49,7 +49,7 @@ class TransfusionImplement : public Transfusion {
       return false;
     }
 
-    int output_binding = 2;
+    int output_binding = 1;
     auto shape = engine_->static_dims(output_binding);
     Asserts(engine_->dtype(output_binding) == TensorRT::DType::HALF, "Invalid binding data type.");
 
@@ -60,9 +60,9 @@ class TransfusionImplement : public Transfusion {
 
   virtual void print() override { engine_->print("Transfusion"); }
 
-  virtual nvtype::half* forward(const nvtype::half* camera_bev, const nvtype::half* lidar_bev, void* stream) override {
+  virtual nvtype::half* forward(const nvtype::half* camera_bev, void* stream) override {
     cudaStream_t _stream = static_cast<cudaStream_t>(stream);
-    engine_->forward({/* input  */ camera_bev, lidar_bev,
+    engine_->forward({/* input  */ camera_bev,
                       /* output */ output_},
                      _stream);
     return output_;

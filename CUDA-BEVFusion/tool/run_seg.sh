@@ -34,8 +34,10 @@ mkdir -p build_seg
 
 cd build_seg
 cmake ..
-make -j
+make -j16
 
 cd ..
 
-./build_seg/bevfusion $DEBUG_DATA $DEBUG_MODEL $DEBUG_PRECISION
+./build_seg/bevfusion
+# ./build_seg/bevfusion $DEBUG_DATA $DEBUG_MODEL $DEBUG_PRECISION
+# gdb ./build_seg/bevfusion

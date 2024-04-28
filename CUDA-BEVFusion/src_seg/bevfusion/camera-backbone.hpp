@@ -35,7 +35,7 @@ namespace camera {
 
 class Backbone {
  public:
-  virtual void forward(const nvtype::half* images, const nvtype::half* depth, void* stream = nullptr) = 0;
+  virtual void forward(const nvtype::half* images, void* stream = nullptr) = 0;
 
   virtual nvtype::half* depth() = 0;
   virtual nvtype::half* feature() = 0;

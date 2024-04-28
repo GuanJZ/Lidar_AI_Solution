@@ -69,8 +69,8 @@ function compile_trt_model(){
     precision_flags=$2
     number_of_input=$3
     number_of_output=$4
-    result_save_directory=$base/build/onnx_fp16
-    onnx=$base/onnx_fp16/$name.onnx
+    result_save_directory=$base/build
+    onnx=$base/$name.onnx
 
     if [ -f "${result_save_directory}/$name.plan" ]; then
         echo Model ${result_save_directory}/$name.plan already build 🙋🙋🙋.

@@ -21,8 +21,8 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#ifndef __HEAD_TRANSBBOX_HPP__
-#define __HEAD_TRANSBBOX_HPP__
+#ifndef __HEAD_MAP_HPP__
+#define __HEAD_MAP_HPP__
 
 #include <memory>
 #include <string>
@@ -31,52 +31,19 @@
 #include "common/dtype.hpp"
 
 namespace bevfusion {
-namespace head {
-namespace transbbox {
+namespace camera {
 
-struct TransBBoxParameter {
-  std::string model;
-  float out_size_factor = 8;
-  nvtype::Float2 voxel_size{0.075, 0.075};
-  nvtype::Float2 pc_range{-54.0f, -54.0f};
-  nvtype::Float3 post_center_range_start{-61.2, -61.2, -10.0};
-  nvtype::Float3 post_center_range_end{61.2, 61.2, 10.0};
-  float confidence_threshold = 0.0f;
-  bool sorted_bboxes = true;
-};
-
-struct Position {
-  float x, y, z;
-};
-
-struct Size {
-  float w, l, h;  // x, y, z
-};
-
-struct Velocity {
-  float vx, vy;
-};
-
-struct BoundingBox {
-  Position position;
-  Size size;
-  Velocity velocity;
-  float z_rotation;
-  float score;
-  int id;
-};
-
-class TransBBox {
+class HeadMap {
  public:
-  virtual std::vector<BoundingBox> forward(const nvtype::half* transfusion_feature, float confidence_threshold, void* stream,
-                                           bool sorted_by_conf = false) = 0;
+  virtual nvtype::half* forward(const nvtype::half* middle, void* stream = nullptr) = 0;
+
+  virtual std::vector<int> feat_shape() = 0;
   virtual void print() = 0;
 };
 
-std::shared_ptr<TransBBox> create_transbbox(const TransBBoxParameter& param);
+std::shared_ptr<HeadMap> create_headmap(const std::string& model);
 
-};  // namespace transbbox
-};  // namespace head
+};  // namespace camera
 };  // namespace bevfusion
 
-#endif  // __HEAD_TRANSBBOX_HPP__
+#endif  // __HEAD_MAP_HPP__

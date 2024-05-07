@@ -60,91 +60,6 @@ static void free_images(std::vector<unsigned char*>& images) {
   images.clear();
 }
 
-static void visualize(const std::vector<bevfusion::head::transbbox::BoundingBox>& bboxes, const nv::Tensor& lidar_points,
-                      const std::vector<unsigned char*> images, const nv::Tensor& lidar2image, const std::string& save_path,
-                      cudaStream_t stream) {
-  std::vector<nv::Prediction> predictions(bboxes.size());
-  memcpy(predictions.data(), bboxes.data(), bboxes.size() * sizeof(nv::Prediction));
-
-  int padding = 300;
-  int lidar_size = 1024;
-  int content_width = lidar_size + padding * 3;
-  int content_height = 1080;
-  nv::SceneArtistParameter scene_artist_param;
-  scene_artist_param.width = content_width;
-  scene_artist_param.height = content_height;
-  scene_artist_param.stride = scene_artist_param.width * 3;
-
-  nv::Tensor scene_device_image(std::vector<int>{scene_artist_param.height, scene_artist_param.width, 3}, nv::DataType::UInt8);
-  scene_device_image.memset(0x00, stream);
-
-  scene_artist_param.image_device = scene_device_image.ptr<unsigned char>();
-  auto scene = nv::create_scene_artist(scene_artist_param);
-
-  nv::BEVArtistParameter bev_artist_param;
-  bev_artist_param.image_width = content_width;
-  bev_artist_param.image_height = content_height;
-  bev_artist_param.rotate_x = 70.0f;
-  bev_artist_param.norm_size = lidar_size * 0.5f;
-  bev_artist_param.cx = content_width * 0.5f;
-  bev_artist_param.cy = content_height * 0.5f;
-  bev_artist_param.image_stride = scene_artist_param.stride;
-
-  auto points = lidar_points.to_device();
-  auto bev_visualizer = nv::create_bev_artist(bev_artist_param);
-  bev_visualizer->draw_lidar_points(points.ptr<nvtype::half>(), points.size(0));
-  bev_visualizer->draw_prediction(predictions, false);
-  bev_visualizer->draw_ego();
-  bev_visualizer->apply(scene_device_image.ptr<unsigned char>(), stream);
-
-  nv::ImageArtistParameter image_artist_param;
-  image_artist_param.num_camera = images.size();
-  image_artist_param.image_width = 1600;
-  image_artist_param.image_height = 900;
-  image_artist_param.image_stride = image_artist_param.image_width * 3;
-  image_artist_param.viewport_nx4x4.resize(images.size() * 4 * 4);
-  memcpy(image_artist_param.viewport_nx4x4.data(), lidar2image.ptr<float>(),
-         sizeof(float) * image_artist_param.viewport_nx4x4.size());
-
-  int gap = 0;
-  int camera_width = 500;
-  int camera_height = static_cast<float>(camera_width / (float)image_artist_param.image_width * image_artist_param.image_height);
-  int offset_cameras[][3] = {
-      {-camera_width / 2, -content_height / 2 + gap, 0},
-      {content_width / 2 - camera_width - gap, -content_height / 2 + camera_height / 2, 0},
-      {-content_width / 2 + gap, -content_height / 2 + camera_height / 2, 0},
-      {-camera_width / 2, +content_height / 2 - camera_height - gap, 1},
-      {-content_width / 2 + gap, +content_height / 2 - camera_height - camera_height / 2, 0},
-      {content_width / 2 - camera_width - gap, +content_height / 2 - camera_height - camera_height / 2, 1}};
-
-  auto visualizer = nv::create_image_artist(image_artist_param);
-  for (size_t icamera = 0; icamera < images.size(); ++icamera) {
-    int ox = offset_cameras[icamera][0] + content_width / 2;
-    int oy = offset_cameras[icamera][1] + content_height / 2;
-    bool xflip = static_cast<bool>(offset_cameras[icamera][2]);
-    visualizer->draw_prediction(icamera, predictions, xflip);
-
-    nv::Tensor device_image(std::vector<int>{900, 1600, 3}, nv::DataType::UInt8);
-    device_image.copy_from_host(images[icamera], stream);
-
-    if (xflip) {
-      auto clone = device_image.clone(stream);
-      scene->flipx(clone.ptr<unsigned char>(), clone.size(1), clone.size(1) * 3, clone.size(0), device_image.ptr<unsigned char>(),
-                   device_image.size(1) * 3, stream);
-      checkRuntime(cudaStreamSynchronize(stream));
-    }
-    visualizer->apply(device_image.ptr<unsigned char>(), stream);
-
-    scene->resize_to(device_image.ptr<unsigned char>(), ox, oy, ox + camera_width, oy + camera_height, device_image.size(1),
-                     device_image.size(1) * 3, device_image.size(0), 0.8f, stream);
-    checkRuntime(cudaStreamSynchronize(stream));
-  }
-
-  printf("Save to %s\n", save_path.c_str());
-  stbi_write_jpg(save_path.c_str(), scene_device_image.size(1), scene_device_image.size(0), 3,
-                 scene_device_image.to_host(stream).ptr(), 100);
-}
-
 std::shared_ptr<bevfusion::Core> create_core(const std::string& model, const std::string& precision) {
 
   printf("Create by %s, %s\n", model.c_str(), precision.c_str());
@@ -184,16 +99,25 @@ std::shared_ptr<bevfusion::Core> create_core(const std::string& model, const std
   // (360, 360, 80) -> (256, 256, 80)
   geometry.geometry_dim = nvtype::Int3(256, 256, 80);
 
+  bevfusion::camera::SampleGridParameter sample_grid;
+  sample_grid.input_channel = 256;
+  sample_grid.input_width = 128;
+  sample_grid.input_height = 128;
+
+  sample_grid.output_channel = 256;
+  sample_grid.output_width = 200;
+  sample_grid.output_height = 200;
+
   // 统计模块参数
   bevfusion::CoreParameter param;
   param.camera_model = nv::format("model/%s/build/camera.backbone.plan", model.c_str());
   param.normalize = normalization;
-
   param.geometry = geometry;
-
   param.transfusion = nv::format("model/%s/build/fuser.plan", model.c_str());
-
   param.camera_vtransform = nv::format("model/%s/build/camera.vtransform.plan", model.c_str());
+  param.sample_grid = sample_grid;
+  param.headmap = nv::format("model/%s/build/head.map.plan", model.c_str());
+
   return bevfusion::create_core(param);
 }
 
@@ -230,16 +154,15 @@ int main(int argc, char** argv) {
 
   // Load image and lidar to host
   auto images = load_images(data);
-  auto lidar_points = nv::Tensor::load(nv::format("%s/points.tensor", data), false);
   
   // warmup
-  auto bboxes =
-      core->forward((const unsigned char**)images.data(), lidar_points.ptr<nvtype::half>(), lidar_points.size(0), stream);
+  const nvtype::half* bev_seg =
+      core->forward((const unsigned char**)images.data(), stream);
 
-  // // evaluate inference time
-  // for (int i = 0; i < 5; ++i) {
-  //   core->forward((const unsigned char**)images.data(), lidar_points.ptr<nvtype::half>(), lidar_points.size(0), stream);
-  // }
+  // evaluate inference time
+  for (int i = 0; i < 5; ++i) {
+    core->forward((const unsigned char**)images.data(), stream);
+  }
 
   // // visualize and save to jpg
   // visualize(bboxes, lidar_points, images, lidar2image, "build_seg/cuda-bevfusion.jpg", stream);

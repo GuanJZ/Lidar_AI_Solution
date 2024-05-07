@@ -34,8 +34,6 @@ namespace bevfusion {
 class CoreImplement : public Core {
  public:
   virtual ~CoreImplement() {
-    if (lidar_points_device_) checkRuntime(cudaFree(lidar_points_device_));
-    if (lidar_points_host_) checkRuntime(cudaFreeHost(lidar_points_host_));
   }
 
   bool init(const CoreParameter& param) {
@@ -64,9 +62,8 @@ class CoreImplement : public Core {
     }
 
     // decoder , 输入来自downsample
-    // 输入改变， [1, 80, 128, 128]
-    // 输出改变， [1, 256, 128, 128]
-    // 输出拷贝到cpu内存，保存为txt
+    // 输入， [1, 80, 128, 128]
+    // 输出， [1, 256, 128, 128]
     transfusion_ = fuser::create_transfusion(param.transfusion);
     if (transfusion_ == nullptr) {
       printf("Failed to create transfusion.\n");
@@ -79,34 +76,29 @@ class CoreImplement : public Core {
       return false;
     }
 
-    camera_depth_ = camera::create_depth(param.normalize.output_width, param.normalize.output_height, param.normalize.num_camera);
-    if (camera_depth_ == nullptr) {
-      printf("Failed to create depth.\n");
-      return false;
-    }
-
     camera_geometry_ = camera::create_geometry(param.geometry);
     if (camera_geometry_ == nullptr) {
       printf("Failed to create geometry.\n");
       return false;
     }
 
-    capacity_points_ = 300000;
-    bytes_capacity_points_ = capacity_points_ * param.lidar_scn.voxelization.num_feature * sizeof(nvtype::half);
-    checkRuntime(cudaMalloc(&lidar_points_device_, bytes_capacity_points_));
-    checkRuntime(cudaMallocHost(&lidar_points_host_, bytes_capacity_points_));
+    sample_grid_ = camera::create_samplegrid(param.sample_grid);
+    if (sample_grid_ == nullptr) {
+      printf("Failed to create sample_grid.\n");
+      return false;
+    }
+
+    head_map_ = camera::create_headmap(param.headmap);
+    if (head_map_ == nullptr) {
+      printf("Failed to create head map.\n");
+      return false;
+    }
+
     param_ = param;
     return true;
   }
 
-  bool forward_only(const void* camera_images, const nvtype::half* lidar_points,
-                                                         int num_points, void* stream, bool do_normalization) {
-    int cappoints = static_cast<int>(capacity_points_);
-    if (num_points > cappoints) {
-      printf("If it exceeds %d points, the default processing will simply crop it out.\n", cappoints);
-    }
-
-    num_points = std::min(cappoints, num_points);
+  const nvtype::half* forward_only(const void* camera_images, void* stream, bool do_normalization) {
 
     cudaStream_t _stream = static_cast<cudaStream_t>(stream);
     nvtype::half* normed_images = (nvtype::half*)camera_images;
@@ -121,17 +113,18 @@ class CoreImplement : public Core {
 
     const nvtype::half* camera_bevfeat = camera_vtransform_->forward(camera_bev, stream);
     const nvtype::half* fusion_feature = this->transfusion_->forward(camera_bevfeat, stream);
-    return true;
+    const nvtype::half* middle = this->sample_grid_->forward(fusion_feature, stream);
+    const nvtype::half* bev_seg = head_map_->forward(middle, _stream);
+    // std::string save_dir = 
+    //   "/media/gpal/8e78e258-6a68-4733-8ec2-b837743b11e6/workspace/github/Lidar_AI_Solution/CUDA-BEVFusion/model/seg_camera_only_resnet50/assets/";
+
+    // int num_elements = 6 * 200 * 200;
+    // std::string save_path = save_dir + "head.map.classifier.output.cpp.total.txt";
+    // saveToTxt(save_path, bev_seg, num_elements);
+    return bev_seg;
   }
 
-  bool forward_timer(const void* camera_images, const nvtype::half* lidar_points,
-                                                          int num_points, void* stream, bool do_normalization) {
-    int cappoints = static_cast<int>(capacity_points_);
-    if (num_points > cappoints) {
-      printf("If it exceeds %d points, the default processing will simply crop it out.\n", cappoints);
-    }
-
-    num_points = std::min(cappoints, num_points);
+  const nvtype::half* forward_timer(const void* camera_images, void* stream, bool do_normalization) {
 
     printf("==================BEVFusion===================\n");
     std::vector<float> times;
@@ -181,32 +174,53 @@ class CoreImplement : public Core {
     const nvtype::half* fusion_feature = this->transfusion_->forward(camera_bevfeat, stream);
     times.emplace_back(timer_.stop("Transfusion"));
 
-    int num_elements = 256 * 128 * 128;
-    std::string save_path = save_dir + "decoder.output.cpp.txt";
-    saveToTxt(save_path, fusion_feature, num_elements);
+    // int num_elements = 256 * 128 * 128;
+    // std::string save_path = save_dir + "decoder.output.cpp.txt";
+    // saveToTxt(save_path, fusion_feature, num_elements);
+
+    // 添加 grid_sample
+    // nvtype::half* input_feature = nullptr;
+    // checkRuntime(cudaMalloc(&input_feature, 256*128*128 * sizeof(nvtype::half)));
+    // std::string file_path = save_dir + "decoder.output.cpp.txt";
+    // loadTxtToGpuMemory(file_path, input_feature);
+    timer_.start(_stream);
+    const nvtype::half* middle = this->sample_grid_->forward(fusion_feature, stream);
+    times.emplace_back(timer_.stop("Samplegrid"));
+    // std::string save_path = save_dir + "sample_grid.output.cpp.half.txt";
+    // int num_elements = 256 * 200 * 200;
+    // saveToTxt(save_path, middle, num_elements);
+
+
+    // std::string middle_file_path = "/media/gpal/8e78e258-6a68-4733-8ec2-b837743b11e6/workspace/github/Lidar_AI_Solution/CUDA-BEVFusion/model/seg_camera_only_resnet50/assets/bev_grid_sample_output.txt";
+    // loadTxtToGpuMemory(middle_file_path, middle);
+    timer_.start(_stream);
+    const nvtype::half* bev_seg = head_map_->forward(middle, _stream);
+    times.emplace_back(timer_.stop("Headmap"));
+
+    // int num_elements = 6 * 200 * 200;
+    // std::string save_path = save_dir + "head.map.classifier.output.cpp.total.txt";
+    // saveToTxt(save_path, bev_seg, num_elements);
+
 
     float total_time = std::accumulate(times.begin(), times.end(), 0.0f, std::plus<float>{});
     printf("Total: %.3f ms\n", total_time);
     printf("=============================================\n");
-    return true;
+    return bev_seg;
   }
 
-  virtual bool forward(const unsigned char** camera_images, const nvtype::half* lidar_points,
-                                                            int num_points, void* stream) override {
+  virtual const nvtype::half* forward(const unsigned char** camera_images, void* stream) override {
     if (enable_timer_) {
-      return this->forward_timer(camera_images, lidar_points, num_points, stream, true);
+      return this->forward_timer(camera_images, stream, true);
     } else {
-      return this->forward_only(camera_images, lidar_points, num_points, stream, true);
+      return this->forward_only(camera_images, stream, true);
     }
   }
 
-  virtual bool forward_no_normalize(const nvtype::half* camera_normed_images_device,
-                                                                         const nvtype::half* lidar_points, int num_points,
-                                                                         void* stream) override {
+  virtual const nvtype::half* forward_no_normalize(const nvtype::half* camera_normed_images_device, void* stream) override {
     if (enable_timer_) {
-      return this->forward_timer(camera_normed_images_device, lidar_points, num_points, stream, false);
+      return this->forward_timer(camera_normed_images_device, stream, false);
     } else {
-      return this->forward_only(camera_normed_images_device, lidar_points, num_points, stream, false);
+      return this->forward_only(camera_normed_images_device, stream, false);
     }
   }
 
@@ -216,12 +230,11 @@ class CoreImplement : public Core {
     camera_backbone_->print();
     camera_vtransform_->print();
     transfusion_->print();
-    // transbbox_->print();
+    head_map_->print();
   }
 
   virtual void update(const float* camera2lidar, const float* camera_intrinsics, const float* lidar2image,
                       const float* img_aug_matrix, void* stream) override {
-    camera_depth_->update(img_aug_matrix, lidar2image, stream);
     camera_geometry_->update(camera2lidar, camera_intrinsics, img_aug_matrix, stream);
   }
 
@@ -230,20 +243,15 @@ class CoreImplement : public Core {
  private:
   CoreParameter param_;
   nv::EventTimer timer_;
-  nvtype::half* lidar_points_device_ = nullptr;
-  nvtype::half* lidar_points_host_ = nullptr;
-  size_t capacity_points_ = 0;
-  size_t bytes_capacity_points_ = 0;
 
   std::shared_ptr<camera::Normalization> normalizer_;
   std::shared_ptr<camera::Backbone> camera_backbone_;
   std::shared_ptr<camera::BEVPool> camera_bevpool_;
   std::shared_ptr<camera::VTransform> camera_vtransform_;
-  std::shared_ptr<camera::Depth> camera_depth_;
   std::shared_ptr<camera::Geometry> camera_geometry_;
-  std::shared_ptr<lidar::SCN> lidar_scn_;
   std::shared_ptr<fuser::Transfusion> transfusion_;
-  std::shared_ptr<head::transbbox::TransBBox> transbbox_;
+  std::shared_ptr<camera::SampleGrid> sample_grid_;
+  std::shared_ptr<camera::HeadMap> head_map_;
   float confidence_threshold_ = 0;
   bool enable_timer_ = false;
 };

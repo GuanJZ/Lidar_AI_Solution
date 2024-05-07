@@ -26,13 +26,12 @@
 
 #include "camera-backbone.hpp"
 #include "camera-bevpool.hpp"
-#include "camera-depth.hpp"
 #include "camera-geometry.hpp"
 #include "camera-normalization.hpp"
 #include "camera-vtransform.hpp"
-#include "head-transbbox.hpp"
-#include "lidar-scn.hpp"
 #include "transfusion.hpp"
+#include "sample-grid.hpp"
+#include "head-map.hpp"
 
 namespace bevfusion {
 
@@ -41,19 +40,16 @@ struct CoreParameter {
   std::string camera_vtransform;
   camera::GeometryParameter geometry;
   camera::NormalizationParameter normalize;
-  lidar::SCNParameter lidar_scn;
+  camera::SampleGridParameter sample_grid;
   std::string transfusion;
-  head::transbbox::TransBBoxParameter transbbox;
+  std::string headmap;
 };
 
 class Core {
  public:
-  virtual bool forward(const unsigned char **camera_images, const nvtype::half *lidar_points,
-                                                            int num_points, void *stream) = 0;
+  virtual const nvtype::half* forward(const unsigned char **camera_images, void *stream) = 0;
 
-  virtual bool forward_no_normalize(const nvtype::half *camera_normed_images_device,
-                                                                         const nvtype::half *lidar_points, int num_points,
-                                                                         void *stream) = 0;
+  virtual const nvtype::half* forward_no_normalize(const nvtype::half *camera_normed_images_device, void *stream) = 0;
 
   virtual void print() = 0;
   virtual void set_timer(bool enable) = 0;

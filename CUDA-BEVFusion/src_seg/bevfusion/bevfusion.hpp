@@ -54,7 +54,7 @@ class Core {
   virtual void print() = 0;
   virtual void set_timer(bool enable) = 0;
 
-  virtual void update(const float *camera2lidar, const float *camera_intrinsics, const float *lidar2image,
+  virtual void update(const float *camera2lidar, const float *camera_intrinsics,
                       const float *img_aug_matrix, void *stream = nullptr) = 0;
 
   // Consider releasing excess memory if you don't need to update the matrix

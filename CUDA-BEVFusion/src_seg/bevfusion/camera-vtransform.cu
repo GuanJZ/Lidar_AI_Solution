@@ -49,7 +49,7 @@ class VTransformImplement : public VTransform {
     return true;
   }
 
-  virtual void print() override { engine_->print("Camerea VTransform"); }
+  virtual void print() override { engine_->print("Camerea VTransform.Downsample"); }
 
   virtual nvtype::half* forward(const nvtype::half* camera_bev, void* stream = nullptr) override {
     engine_->forward({camera_bev, output_feature_}, static_cast<cudaStream_t>(stream));

@@ -148,8 +148,7 @@ int main(int argc, char** argv) {
   auto camera_intrinsics = nv::Tensor::load(nv::format("%s/camera_intrinsics.tensor", data), false);
   auto lidar2image = nv::Tensor::load(nv::format("%s/lidar2image.tensor", data), false);
   auto img_aug_matrix = nv::Tensor::load(nv::format("%s/img_aug_matrix.tensor", data), false);
-  core->update(camera2lidar.ptr<float>(), camera_intrinsics.ptr<float>(), lidar2image.ptr<float>(), img_aug_matrix.ptr<float>(),
-              stream);
+  core->update(camera2lidar.ptr<float>(), camera_intrinsics.ptr<float>(), img_aug_matrix.ptr<float>(), stream);
   // core->free_excess_memory();
 
   // Load image and lidar to host
@@ -159,13 +158,10 @@ int main(int argc, char** argv) {
   const nvtype::half* bev_seg =
       core->forward((const unsigned char**)images.data(), stream);
 
-  // evaluate inference time
-  for (int i = 0; i < 5; ++i) {
-    core->forward((const unsigned char**)images.data(), stream);
-  }
-
-  // // visualize and save to jpg
-  // visualize(bboxes, lidar_points, images, lidar2image, "build_seg/cuda-bevfusion.jpg", stream);
+  // // evaluate inference time
+  // for (int i = 0; i < 5; ++i) {
+  //   core->forward((const unsigned char**)images.data(), stream);
+  // }
 
   // destroy memory
   free_images(images);

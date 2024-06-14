@@ -58,7 +58,7 @@ class TransfusionImplement : public Transfusion {
     return true;
   }
 
-  virtual void print() override { engine_->print("Transfusion"); }
+  virtual void print() override { engine_->print("Transfusion.Decoder"); }
 
   virtual nvtype::half* forward(const nvtype::half* camera_bev, void* stream) override {
     cudaStream_t _stream = static_cast<cudaStream_t>(stream);

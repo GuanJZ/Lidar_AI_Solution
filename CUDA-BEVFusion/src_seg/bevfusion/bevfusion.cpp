@@ -115,12 +115,6 @@ class CoreImplement : public Core {
     const nvtype::half* fusion_feature = this->transfusion_->forward(camera_bevfeat, stream);
     const nvtype::half* middle = this->sample_grid_->forward(fusion_feature, stream);
     const nvtype::half* bev_seg = head_map_->forward(middle, _stream);
-    // std::string save_dir = 
-    //   "/media/gpal/8e78e258-6a68-4733-8ec2-b837743b11e6/workspace/github/Lidar_AI_Solution/CUDA-BEVFusion/model/seg_camera_only_resnet50/assets/";
-
-    // int num_elements = 6 * 200 * 200;
-    // std::string save_path = save_dir + "head.map.classifier.output.cpp.total.txt";
-    // saveToTxt(save_path, bev_seg, num_elements);
     return bev_seg;
   }
 
@@ -133,28 +127,16 @@ class CoreImplement : public Core {
     nvtype::half* normed_images = (nvtype::half*)camera_images;
     if (do_normalization) {
       timer_.start(_stream);
-      normed_images = (nvtype::half*)this->normalizer_->forward((const unsigned char**)(camera_images), stream);
-      timer_.stop("[NoSt] ImageNrom");
+      normed_images = (nvtype::half*)this->normalizer_->forward((const unsigned char**)(camera_images), _stream);
+      times.emplace_back(timer_.stop("[NoSt] ImageNrom"));
     }
 
-    std::string save_dir = 
-      "/media/gpal/8e78e258-6a68-4733-8ec2-b837743b11e6/workspace/github/Lidar_AI_Solution/CUDA-BEVFusion/model/seg_camera_only_resnet50/assets/";
-    
-    // int num_elements = 6*3*256*704;
-    // std::string save_path = save_dir + "encoder.camera.input.cpp.txt";
-    // saveToTxt(save_path, normed_images, num_elements);
+    // std::string save_dir = 
+    //   "/media/gpal/8e78e258-6a68-4733-8ec2-b837743b11e6/workspace/github/Lidar_AI_Solution/CUDA-BEVFusion/model/seg_camera_only_resnet50/assets/";
 
     timer_.start(_stream);
     this->camera_backbone_->forward(normed_images, stream);
     times.emplace_back(timer_.stop("Camera Backbone"));
-
-    // int num_elements = 6*32*88*80;
-    // std::string save_path = save_dir + "encoder.camera.feats.output.cpp.txt";
-    // saveToTxt(save_path, this->camera_backbone_->feature(), num_elements);
-
-    // num_elements = 6*118*32*88;
-    // save_path = save_dir + "encoder.camera.depth.output.cpp.txt";
-    // saveToTxt(save_path, this->camera_backbone_->depth(), num_elements);
 
     timer_.start(_stream);
     const nvtype::half* camera_bev = this->camera_bevpool_->forward(
@@ -162,21 +144,13 @@ class CoreImplement : public Core {
         this->camera_geometry_->intervals(), this->camera_geometry_->num_intervals(), stream);
     times.emplace_back(timer_.stop("Camera Bevpool"));
 
-    // int num_elements = 80*256*256;
-    // std::string save_path = save_dir + "vtransform.downsample.input.cpp.txt";
-    // saveToTxt(save_path, camera_bev, num_elements);
-
     timer_.start(_stream);
     const nvtype::half* camera_bevfeat = camera_vtransform_->forward(camera_bev, stream);
-    times.emplace_back(timer_.stop("VTransform"));
+    times.emplace_back(timer_.stop("VTransform.Downsample"));
 
     timer_.start(_stream);
     const nvtype::half* fusion_feature = this->transfusion_->forward(camera_bevfeat, stream);
-    times.emplace_back(timer_.stop("Transfusion"));
-
-    // int num_elements = 256 * 128 * 128;
-    // std::string save_path = save_dir + "decoder.output.cpp.txt";
-    // saveToTxt(save_path, fusion_feature, num_elements);
+    times.emplace_back(timer_.stop("Transfusion.Decoder"));
 
     // 添加 grid_sample
     // nvtype::half* input_feature = nullptr;
@@ -198,7 +172,7 @@ class CoreImplement : public Core {
     times.emplace_back(timer_.stop("Headmap"));
 
     // int num_elements = 6 * 200 * 200;
-    // std::string save_path = save_dir + "head.map.classifier.output.cpp.total.txt";
+    // std::string save_path = save_dir + "head.map.classifier.output.cpp.total3.txt";
     // saveToTxt(save_path, bev_seg, num_elements);
 
 
@@ -233,7 +207,7 @@ class CoreImplement : public Core {
     head_map_->print();
   }
 
-  virtual void update(const float* camera2lidar, const float* camera_intrinsics, const float* lidar2image,
+  virtual void update(const float* camera2lidar, const float* camera_intrinsics,
                       const float* img_aug_matrix, void* stream) override {
     camera_geometry_->update(camera2lidar, camera_intrinsics, img_aug_matrix, stream);
   }

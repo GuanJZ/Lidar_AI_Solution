@@ -10,3 +10,13 @@ tool/__pycache__/
 model
 example-data
 src/test
+.vscode/settings.json
+bevfusion
+../.vscode/
+build_seg/
+data
+model.zip
+nuScenes-example-data.zip
+qat/ckpt/
+qat/onnx_fp16/
+qat/onnx_int8/

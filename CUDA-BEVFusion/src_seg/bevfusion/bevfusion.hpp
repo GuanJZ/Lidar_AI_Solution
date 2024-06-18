@@ -32,6 +32,7 @@
 #include "transfusion.hpp"
 #include "sample-grid.hpp"
 #include "head-map.hpp"
+#include "postproc.hpp"
 
 namespace bevfusion {
 
@@ -41,15 +42,16 @@ struct CoreParameter {
   camera::GeometryParameter geometry;
   camera::NormalizationParameter normalize;
   camera::SampleGridParameter sample_grid;
+  camera::PostProcParameter post_proc;
   std::string transfusion;
   std::string headmap;
 };
 
 class Core {
  public:
-  virtual const nvtype::half* forward(const unsigned char **camera_images, void *stream) = 0;
+  virtual const float* forward(const unsigned char **camera_images, void *stream) = 0;
 
-  virtual const nvtype::half* forward_no_normalize(const nvtype::half *camera_normed_images_device, void *stream) = 0;
+  virtual const float* forward_no_normalize(const nvtype::half *camera_normed_images_device, void *stream) = 0;
 
   virtual void print() = 0;
   virtual void set_timer(bool enable) = 0;

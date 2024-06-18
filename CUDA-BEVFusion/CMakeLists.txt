@@ -29,6 +29,7 @@ set(arch ${CMAKE_HOST_SYSTEM_PROCESSOR})
 
 find_package(CUDA REQUIRED)
 find_package(Protobuf REQUIRED)
+# find_package(PCL REQUIRED)  # Add this line to find PCL
 
 set(CMAKE_CXX_FLAGS_RELEASE "-std=c++14 -Wextra -Wall -Wno-missing-field-initializers -Wno-deprecated-declarations -O3 -DENABLE_TEXT_BACKEND_STB")
 set(CMAKE_CXX_FLAGS_DEBUG   "-std=c++14 -O0 -g -DENABLE_TEXT_BACKEND_STB")
@@ -42,6 +43,7 @@ set(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS}
 
 include_directories(
   ${Protobuf_INCLUDE_DIRS}
+  # ${PCL_INCLUDE_DIRS}  # Add PCL include directories
   $ENV{CUDA_Inc}
   $ENV{TensorRT_Inc}
   $ENV{Python_Inc}
@@ -50,6 +52,8 @@ include_directories(
   ../libraries/cuOSD/src
   src_seg/common
   src_seg/
+  /usr/include/pcl-1.10
+  /usr/include/eigen3
 )
 
 link_directories(
@@ -83,6 +87,9 @@ target_link_libraries(bevfusion_core
   libnvinfer.so
   ${Protobuf_LIBRARIES}
   libnvinfer_plugin.so
+  # ${PCL_LIBRARIES}  # Add PCL libraries
+  -lpcl_common  # PCL library
+  -lpcl_io      # PCL library
 )
 #######################################################################
 
@@ -98,6 +105,9 @@ target_link_libraries(bevfusion
   libnvinfer.so
   ${Protobuf_LIBRARIES}
   libnvinfer_plugin.so
+  # ${PCL_LIBRARIES}  # Add PCL libraries
+  -lpcl_common  # PCL library
+  -lpcl_io      # PCL library
 )
 #######################################################################
 
@@ -114,6 +124,9 @@ if(${CMAKE_BUILD_PYTHON} STREQUAL "ON")
     ${Protobuf_LIBRARIES}
     libnvinfer_plugin.so
     $ENV{Python_Soname}
+    # ${PCL_LIBRARIES}  # Add PCL libraries
+    -lpcl_common  # PCL library
+    -lpcl_io      # PCL library
   )
 endif()
 #######################################################################

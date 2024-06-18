@@ -61,7 +61,7 @@ class SubClassHeadMap(nn.Module):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Export transfusion to onnx file")
     parser.add_argument("--ckpt", type=str, default="qat/ckpt/bevfusion_ptq.pth", help="Pretrain model")
-    parser.add_argument('--save_root', type=str, default='./model/seg_camera_only_resnet50')
+    parser.add_argument('--save_root', type=str, default='')
     parser.add_argument('--fp16', action= 'store_true')
     args = parser.parse_args()
 
@@ -72,7 +72,7 @@ if __name__ == "__main__":
         suffix = "fp16"
         quantize.disable_quantization(model).apply()
     
-    save_root = os.path.join(args.save_root, f"onnx_{suffix}")
+    save_root = os.path.join(os.path.dirname(args.ckpt), f"onnx_{suffix}")
     os.makedirs(save_root, exist_ok=True)
         
     model.eval()

@@ -22,6 +22,7 @@
 
 # configure the environment
 . tool/environment.sh
+# source tool/environment.sh
 
 if [ "$ConfigurationStatus" != "Success" ]; then
     echo "Exit due to configure failure."
@@ -29,7 +30,8 @@ if [ "$ConfigurationStatus" != "Success" ]; then
 fi
 
 # tensorrt version
-# version=`trtexec | grep -m 1 TensorRT | sed -n "s/.*\[TensorRT v\([0-9]*\)\].*/\1/p"`
+version=`trtexec | grep -m 1 TensorRT | sed -n "s/.*\[TensorRT v\([0-9]*\)\].*/\1/p"`
+echo "tensorrt version: $version"
 
 # resnet50/resnet50-int8/swint-tiny
 base=model/$DEBUG_MODEL
@@ -69,7 +71,7 @@ function compile_trt_model(){
     precision_flags=$2
     number_of_input=$3
     number_of_output=$4
-    result_save_directory=$base/build
+    result_save_directory=$base/build_seg
     onnx=$base/$name.onnx
 
     if [ -f "${result_save_directory}/$name.plan" ]; then

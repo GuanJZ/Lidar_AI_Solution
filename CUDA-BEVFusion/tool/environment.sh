@@ -35,8 +35,7 @@ export CUDNN_Lib=/media/gpal/8e78e258-6a68-4733-8ec2-b837743b11e6/softwares/nvid
 
 
 # resnet50/resnet50int8/swint
-# export DEBUG_MODEL=seg_camera_only_resnet50
-export DEBUG_MODEL=resnet50
+export DEBUG_MODEL=seg_camera_only_resnet50_ge_bev_output_scope_0.5
 
 # fp16/int8
 export DEBUG_PRECISION=fp16
@@ -67,9 +66,9 @@ echo "||  CUDA: $CUDA_HOME"
 echo "||  CUDNN: $CUDNN_Lib"
 echo "=========================================================="
 
-BuildDirectory=`pwd`/build
+BuildDirectory=`pwd`/build_seg
 
-if [ "$USE_Python" == "ON" ]; then
+if [ "$USE_Python" = "ON" ]; then
     export Python_Inc=`python3 -c "import sysconfig;print(sysconfig.get_path('include'))"`
     export Python_Lib=`python3 -c "import sysconfig;print(sysconfig.get_config_var('LIBDIR'))"`
     export Python_Soname=`python3 -c "import sysconfig;import re;print(re.sub('.a', '.so', sysconfig.get_config_var('LIBRARY')))"`

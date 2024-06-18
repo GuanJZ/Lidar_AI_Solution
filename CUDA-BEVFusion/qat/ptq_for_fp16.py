@@ -98,33 +98,10 @@ def main():
     cfg = Config(recursive_eval(configs), filename=args.config)
 
     # save_path = 'qat/ckpt/bevfusion_fp16.pth'
-    os.makedirs(os.path.dirname(args.save_path), exist_ok=True)
-
-    # # set random seeds
-    # if cfg.seed is not None:
-    #     print(
-    #         f"Set random seed to {cfg.seed}, "
-    #         f"deterministic mode: {cfg.deterministic}"
-    #     )
-    #     random.seed(cfg.seed)
-    #     np.random.seed(cfg.seed)
-    #     torch.manual_seed(cfg.seed)
-    #     if cfg.deterministic:
-    #         torch.backends.cudnn.deterministic = True
-    #         torch.backends.cudnn.benchmark = False
-
-    # dataset_train  = build_dataset(cfg.data.train)
-    # dataset_test   = build_dataset(cfg.data.test)
-    # print('train nums:{} val nums:{}'.format(len(dataset_train), len(dataset_test)))   
-    # distributed =False
-    # data_loader_train =  build_dataloader(
-    #         dataset_train,
-    #         samples_per_gpu=1,  
-    #         workers_per_gpu=1,  
-    #         dist=distributed,
-    #         seed=cfg.seed,
-    #     )
-    # print('DataLoad Info:', data_loader_train.batch_size, data_loader_train.num_workers)
+    # os.makedirs(os.path.dirname(args.save_path), exist_ok=True)
+    save_root = os.path.join(os.path.dirname(args.ckpt), f"onnx_fp16")
+    os.makedirs(save_root, exist_ok=True)
+    save_path = os.path.join(os.path.dirname(args.ckpt), os.path.basename(args.ckpt).split(".pth")[0] + "_fp16.pth")
 
     #Create Model
     model = load_model(cfg, checkpoint_path = args.ckpt)
@@ -133,19 +110,8 @@ def main():
     model = MMDataParallel(model, device_ids=[0])
     model.eval()
 
-    #Calibrate
-    # print("🔥 start calibrate 🔥 ")
-    # quantize.set_quantizer_fast(model)
-    # quantize.calibrate_model(model, data_loader_train, 0, None, args.calibrate_batch)
-    
-    # quantize.disable_quantization(model.module.encoders.lidar.backbone.conv_input).apply()
-    # quantize.disable_quantization(model.module.decoder.neck.deblocks[0][0]).apply()
-    # quantize.print_quantizer_status(model)
-    
-    # print(f"Done due to ptq only! Save checkpoint to {save_path} 🤗")
-    # model.module.encoders.lidar.backbone = funcs.fuse_relu_only(model.module.encoders.lidar.backbone)
-    torch.save(model, args.save_path)
-    print(f"save checkpoint to target path: {args.save_path}")
+    torch.save(model, save_path)
+    print(f"save checkpoint to target path: {save_path}")
     return
 
 if __name__ == "__main__":

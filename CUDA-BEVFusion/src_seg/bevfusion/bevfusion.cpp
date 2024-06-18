@@ -37,14 +37,12 @@ class CoreImplement : public Core {
   }
 
   bool init(const CoreParameter& param) {
-    // 修改，输入只有图像
     camera_backbone_ = camera::create_backbone(param.camera_model);
     if (camera_backbone_ == nullptr) {
       printf("Failed to create camera backbone.\n");
       return false;
     }
 
-    // 输出改变。 [1, 80, 256, 256]
     camera_bevpool_ =
         camera::create_bevpool(camera_backbone_->camera_shape(), param.geometry.geometry_dim.x, param.geometry.geometry_dim.y);
     if (camera_bevpool_ == nullptr) {
@@ -52,18 +50,12 @@ class CoreImplement : public Core {
       return false;
     }
 
-    // downsample
-    // 输入改变， [1, 80, 256, 256]
-    // 输出改变， [1, 80, 128, 128]
     camera_vtransform_ = camera::create_vtransform(param.camera_vtransform);
     if (camera_vtransform_ == nullptr) {
       printf("Failed to create camera vtransform.\n");
       return false;
     }
 
-    // decoder , 输入来自downsample
-    // 输入， [1, 80, 128, 128]
-    // 输出， [1, 256, 128, 128]
     transfusion_ = fuser::create_transfusion(param.transfusion);
     if (transfusion_ == nullptr) {
       printf("Failed to create transfusion.\n");
@@ -94,11 +86,17 @@ class CoreImplement : public Core {
       return false;
     }
 
+    post_proc_ = camera::create_postproc(param.post_proc);
+    if (post_proc_ == nullptr) {
+      printf("Failed to create post proc.\n");
+      return false;
+    }
+
     param_ = param;
     return true;
   }
 
-  const nvtype::half* forward_only(const void* camera_images, void* stream, bool do_normalization) {
+  const float* forward_only(const void* camera_images, void* stream, bool do_normalization) {
 
     cudaStream_t _stream = static_cast<cudaStream_t>(stream);
     nvtype::half* normed_images = (nvtype::half*)camera_images;
@@ -115,10 +113,11 @@ class CoreImplement : public Core {
     const nvtype::half* fusion_feature = this->transfusion_->forward(camera_bevfeat, stream);
     const nvtype::half* middle = this->sample_grid_->forward(fusion_feature, stream);
     const nvtype::half* bev_seg = head_map_->forward(middle, _stream);
-    return bev_seg;
+    const float* bev_points = post_proc_->forward(bev_seg, _stream);
+    return bev_points;
   }
 
-  const nvtype::half* forward_timer(const void* camera_images, void* stream, bool do_normalization) {
+  const float* forward_timer(const void* camera_images, void* stream, bool do_normalization) {
 
     printf("==================BEVFusion===================\n");
     std::vector<float> times;
@@ -175,14 +174,17 @@ class CoreImplement : public Core {
     // std::string save_path = save_dir + "head.map.classifier.output.cpp.total3.txt";
     // saveToTxt(save_path, bev_seg, num_elements);
 
+    timer_.start(_stream);
+    const float* bev_points = post_proc_->forward(bev_seg, _stream);
+    times.emplace_back(timer_.stop("Postprocess"));
 
     float total_time = std::accumulate(times.begin(), times.end(), 0.0f, std::plus<float>{});
     printf("Total: %.3f ms\n", total_time);
     printf("=============================================\n");
-    return bev_seg;
+    return bev_points;
   }
 
-  virtual const nvtype::half* forward(const unsigned char** camera_images, void* stream) override {
+  virtual const float* forward(const unsigned char** camera_images, void* stream) override {
     if (enable_timer_) {
       return this->forward_timer(camera_images, stream, true);
     } else {
@@ -190,7 +192,7 @@ class CoreImplement : public Core {
     }
   }
 
-  virtual const nvtype::half* forward_no_normalize(const nvtype::half* camera_normed_images_device, void* stream) override {
+  virtual const float* forward_no_normalize(const nvtype::half* camera_normed_images_device, void* stream) override {
     if (enable_timer_) {
       return this->forward_timer(camera_normed_images_device, stream, false);
     } else {
@@ -226,6 +228,7 @@ class CoreImplement : public Core {
   std::shared_ptr<fuser::Transfusion> transfusion_;
   std::shared_ptr<camera::SampleGrid> sample_grid_;
   std::shared_ptr<camera::HeadMap> head_map_;
+  std::shared_ptr<camera::PostProc> post_proc_;
   float confidence_threshold_ = 0;
   bool enable_timer_ = false;
 };

@@ -38,6 +38,8 @@
 #include "common/timer.hpp"
 #include "common/visualize.hpp"
 
+#include "common/savepcd.hpp"
+
 static std::vector<unsigned char*> load_images(const std::string& root) {
   const char* file_names[] = {"0-FRONT.jpg", "1-FRONT_RIGHT.jpg", "2-FRONT_LEFT.jpg",
                               "3-BACK.jpg",  "4-BACK_LEFT.jpg",   "5-BACK_RIGHT.jpg"};
@@ -108,15 +110,25 @@ std::shared_ptr<bevfusion::Core> create_core(const std::string& model, const std
   sample_grid.output_width = 200;
   sample_grid.output_height = 200;
 
+  bevfusion::camera::PostProcParameter post_proc;
+  post_proc.height = sample_grid.output_height;
+  post_proc.width = sample_grid.output_width;
+  post_proc.num_classes = 6;
+  post_proc.resolusion = 0.5f;
+  post_proc.x_start = -50.0f;
+  post_proc.y_start = -50.0f;
+  post_proc.threshold = 0.5;
+
   // 统计模块参数
   bevfusion::CoreParameter param;
-  param.camera_model = nv::format("model/%s/build/camera.backbone.plan", model.c_str());
+  param.camera_model = nv::format("model/%s/build_seg/camera.backbone.plan", model.c_str());
   param.normalize = normalization;
   param.geometry = geometry;
-  param.transfusion = nv::format("model/%s/build/fuser.plan", model.c_str());
-  param.camera_vtransform = nv::format("model/%s/build/camera.vtransform.plan", model.c_str());
+  param.transfusion = nv::format("model/%s/build_seg/fuser.plan", model.c_str());
+  param.camera_vtransform = nv::format("model/%s/build_seg/camera.vtransform.plan", model.c_str());
   param.sample_grid = sample_grid;
-  param.headmap = nv::format("model/%s/build/head.map.plan", model.c_str());
+  param.headmap = nv::format("model/%s/build_seg/head.map.plan", model.c_str());
+  param.post_proc = post_proc;
 
   return bevfusion::create_core(param);
 }
@@ -124,7 +136,7 @@ std::shared_ptr<bevfusion::Core> create_core(const std::string& model, const std
 int main(int argc, char** argv) {
 
   const char* data      = "example-data";
-  const char* model     = "seg_camera_only_resnet50";
+  const char* model     = "seg_camera_only_resnet50_ge_bev_output_scope_0.5";
   const char* precision = "fp16";
 
   if (argc > 1) data      = argv[1];
@@ -155,13 +167,18 @@ int main(int argc, char** argv) {
   auto images = load_images(data);
   
   // warmup
-  const nvtype::half* bev_seg =
+  const float* bev_points =
       core->forward((const unsigned char**)images.data(), stream);
 
-  // // evaluate inference time
-  // for (int i = 0; i < 5; ++i) {
-  //   core->forward((const unsigned char**)images.data(), stream);
-  // }
+  std::string save_path = 
+  "/media/gpal/8e78e258-6a68-4733-8ec2-b837743b11e6/workspace/github/Lidar_AI_Solution/CUDA-BEVFusion/model/seg_camera_only_resnet50/assets/seg_points_2.pcd";
+  int num_points = 200*200;
+  save_pcd(bev_points, num_points, save_path);
+
+  // evaluate inference time
+  for (int i = 0; i < 5; ++i) {
+    core->forward((const unsigned char**)images.data(), stream);
+  }
 
   // destroy memory
   free_images(images);

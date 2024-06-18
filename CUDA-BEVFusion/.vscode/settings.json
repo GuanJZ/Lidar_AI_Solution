@@ -84,5 +84,6 @@
         "queue": "cpp",
         "stack": "cpp",
         "__locale": "cpp"
-    }
+    },
+    "C_Cpp.errorSquiggles": "disabled"
 }

@@ -22,20 +22,18 @@
 cmake_minimum_required(VERSION 2.8.12)
 project(bevfusion)
 
-set(CMAKE_BUILD_PYTHON $ENV{USE_Python})
-set(CMAKE_BUILD_TYPE "Release")
-# set(CMAKE_BUILD_TYPE "Debug")
+# set(CMAKE_BUILD_TYPE "Release")
+set(CMAKE_BUILD_TYPE "Debug")
 set(arch ${CMAKE_HOST_SYSTEM_PROCESSOR})
 
 find_package(CUDA REQUIRED)
 find_package(Protobuf REQUIRED)
-# find_package(PCL REQUIRED)  # Add this line to find PCL
 
 set(CMAKE_CXX_FLAGS_RELEASE "-std=c++14 -Wextra -Wall -Wno-missing-field-initializers -Wno-deprecated-declarations -O3 -DENABLE_TEXT_BACKEND_STB")
 set(CMAKE_CXX_FLAGS_DEBUG   "-std=c++14 -O0 -g -DENABLE_TEXT_BACKEND_STB")
 
 set(CUDA_NVCC_FLAGS_RELEASE "-Werror=all-warnings -Xcompiler -std=c++14,-Wextra,-Wall,-Wno-deprecated-declarations,-O3 -DENABLE_TEXT_BACKEND_STB")
-set(CUDA_NVCC_FLAGS_DEBUG   "-std=c++14 -O3 -g -DENABLE_TEXT_BACKEND_STB")
+set(CUDA_NVCC_FLAGS_DEBUG   "-std=c++14 -O0 -g -DENABLE_TEXT_BACKEND_STB")
 
 set(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS} 
   -gencode arch=compute_$ENV{CUDASM},code=compute_$ENV{CUDASM}
@@ -43,15 +41,12 @@ set(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS}
 
 include_directories(
   ${Protobuf_INCLUDE_DIRS}
-  # ${PCL_INCLUDE_DIRS}  # Add PCL include directories
   $ENV{CUDA_Inc}
   $ENV{TensorRT_Inc}
-  $ENV{Python_Inc}
   ../dependencies/stb
-  ../dependencies/pybind11/include
-  ../libraries/cuOSD/src
-  src_seg/common
   src_seg/
+  src_seg/common/
+  src_seg/bevfusion/
   /usr/include/pcl-1.10
   /usr/include/eigen3
 )
@@ -59,8 +54,6 @@ include_directories(
 link_directories(
   $ENV{CUDA_Lib}
   $ENV{TensorRT_Lib}
-  build_seg
-  $ENV{Python_Lib}
 )
 
 file(GLOB_RECURSE CORE_FILES 
@@ -70,63 +63,18 @@ src_seg/common/tensor.cu
 src_seg/common/tensorrt.cpp
 )
 
-file(GLOB_RECURSE VISUALIZE_FILES 
-  ../libraries/cuOSD/src/*.cpp
-  ../libraries/cuOSD/src/*.cu
-  src_seg/common/visualize.cu
-)
-
-####################### libbevfusion_core.so ##########################
-cuda_add_library(bevfusion_core SHARED 
-  ${CORE_FILES}
-)
-
-target_link_libraries(bevfusion_core
-  libcudart.so
-  libcublasLt.so
-  libnvinfer.so
-  ${Protobuf_LIBRARIES}
-  libnvinfer_plugin.so
-  # ${PCL_LIBRARIES}  # Add PCL libraries
-  -lpcl_common  # PCL library
-  -lpcl_io      # PCL library
-)
-#######################################################################
-
-
 ####################### bevfusion program #############################
 cuda_add_executable(bevfusion 
-src_seg/main.cpp
-  ${VISUALIZE_FILES}
+src_seg/main.cpp ${CORE_FILES}
 )
 
 target_link_libraries(bevfusion
-  bevfusion_core
   libnvinfer.so
   ${Protobuf_LIBRARIES}
   libnvinfer_plugin.so
-  # ${PCL_LIBRARIES}  # Add PCL libraries
+  libcudart.so
+  libcublasLt.so
   -lpcl_common  # PCL library
   -lpcl_io      # PCL library
 )
-#######################################################################
-
-
-########################## libpybev.so ################################
-if(${CMAKE_BUILD_PYTHON} STREQUAL "ON")
-  cuda_add_library(pybev SHARED
-  src_seg/python.cpp
-  )
-
-  target_link_libraries(pybev
-    bevfusion_core
-    libnvinfer.so
-    ${Protobuf_LIBRARIES}
-    libnvinfer_plugin.so
-    $ENV{Python_Soname}
-    # ${PCL_LIBRARIES}  # Add PCL libraries
-    -lpcl_common  # PCL library
-    -lpcl_io      # PCL library
-  )
-endif()
 #######################################################################

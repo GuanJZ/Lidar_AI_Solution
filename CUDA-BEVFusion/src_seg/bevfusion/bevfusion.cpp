@@ -127,11 +127,11 @@ class CoreImplement : public Core {
     if (do_normalization) {
       timer_.start(_stream);
       normed_images = (nvtype::half*)this->normalizer_->forward((const unsigned char**)(camera_images), _stream);
-      times.emplace_back(timer_.stop("[NoSt] ImageNrom"));
+      times.emplace_back(timer_.stop("Image Copy and Preprocess"));
     }
 
     // std::string save_dir = 
-    //   "/media/gpal/8e78e258-6a68-4733-8ec2-b837743b11e6/workspace/github/Lidar_AI_Solution/CUDA-BEVFusion/model/seg_camera_only_resnet50/assets/";
+    //   "/media/gpal/8e78e258-6a68-4733-8ec2-b837743b11e6/workspace/github/Lidar_AI_Solution/CUDA-BEVFusion/model/seg_camera_only_resnet50_ge_bev_output_scope_0.5/";
 
     timer_.start(_stream);
     this->camera_backbone_->forward(normed_images, stream);
@@ -170,8 +170,8 @@ class CoreImplement : public Core {
     const nvtype::half* bev_seg = head_map_->forward(middle, _stream);
     times.emplace_back(timer_.stop("Headmap"));
 
-    // int num_elements = 6 * 200 * 200;
-    // std::string save_path = save_dir + "head.map.classifier.output.cpp.total3.txt";
+    // int num_elements = 200 * 200;
+    // std::string save_path = save_dir + "head.map.classifier.output.cpp.txt";
     // saveToTxt(save_path, bev_seg, num_elements);
 
     timer_.start(_stream);

@@ -35,7 +35,8 @@ export CUDNN_Lib=/media/gpal/8e78e258-6a68-4733-8ec2-b837743b11e6/softwares/nvid
 
 
 # resnet50/resnet50int8/swint
-export DEBUG_MODEL=seg_camera_only_resnet50_ge_bev_output_scope_0.5
+# export DEBUG_MODEL=seg_camera_only_resnet50_ge_bev_output_scope_0.5
+export DEBUG_MODEL=camera_seg_0.5_0.5_2024-02-05-14-34-19_infer_e9
 
 # fp16/int8
 export DEBUG_PRECISION=fp16

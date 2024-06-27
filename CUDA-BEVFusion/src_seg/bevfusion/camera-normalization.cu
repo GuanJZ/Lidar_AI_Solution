@@ -26,6 +26,7 @@
 #include "camera-normalization.hpp"
 #include "common/check.hpp"
 #include "common/launch.cuh"
+#include "common/timer.hpp"
 
 namespace bevfusion {
 namespace camera {
@@ -222,13 +223,17 @@ class NormalizationImplement : public Normalization {
     cudaStream_t _stream = static_cast<cudaStream_t>(stream);
     size_t bytes_image = param_.image_width * param_.image_height * 3 * sizeof(unsigned char);
 
+    timer_.start(_stream);
     for (int icamera = 0; icamera < param_.num_camera; ++icamera)
       checkRuntime(
           cudaMemcpyAsync(raw_images_ + icamera * bytes_image, images[icamera], bytes_image, cudaMemcpyHostToDevice, _stream));
+    timer_.stop("Image Copy");
 
+    timer_.start(_stream);
     cuda_2d_launch(normalize_to_planar_kernel_function, _stream, param_.output_width, param_.output_height, param_.num_camera,
                    sx_, sy_, crop_x_, crop_y_, reinterpret_cast<uchar3*>(raw_images_), param_.image_width, param_.image_height,
                    normalize_images_, param_.method);
+    timer_.stop("Image Preprocess");
 
     return reinterpret_cast<nvtype::half*>(normalize_images_);
   }
@@ -241,6 +246,7 @@ class NormalizationImplement : public Normalization {
   int crop_y_ = 0;
   half* normalize_images_ = nullptr;
   unsigned char* raw_images_ = nullptr;
+  nv::EventTimer timer_;
 };
 
 std::shared_ptr<Normalization> create_normalization(const NormalizationParameter& param) {

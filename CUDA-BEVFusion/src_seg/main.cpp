@@ -36,13 +36,13 @@
 #include "common/check.hpp"
 #include "common/tensor.hpp"
 #include "common/timer.hpp"
-#include "common/visualize.hpp"
 
 #include "common/savepcd.hpp"
+#include "common/load_file.hpp"
 
 static std::vector<unsigned char*> load_images(const std::string& root) {
-  const char* file_names[] = {"0-FRONT.jpg", "1-FRONT_RIGHT.jpg", "2-FRONT_LEFT.jpg",
-                              "3-BACK.jpg",  "4-BACK_LEFT.jpg",   "5-BACK_RIGHT.jpg"};
+  const char* file_names[] = {"1-FRONT_LEFT.jpg", "2-FRONT_RIGHT.jpg", "3-LEFT.jpg",
+                              "4-RIGHT.jpg",  "5-BACK_LEFT.jpg",   "6-BACK_RIGHT.jpg"};
 
   std::vector<unsigned char*> images;
   for (int i = 0; i < 6; ++i) {
@@ -66,8 +66,8 @@ std::shared_ptr<bevfusion::Core> create_core(const std::string& model, const std
 
   printf("Create by %s, %s\n", model.c_str(), precision.c_str());
   bevfusion::camera::NormalizationParameter normalization;
-  normalization.image_width = 1600;
-  normalization.image_height = 900;
+  normalization.image_width = 1920;
+  normalization.image_height = 1080;
   normalization.output_width = 704;
   normalization.output_height = 256;
   normalization.num_camera = 6;
@@ -113,7 +113,7 @@ std::shared_ptr<bevfusion::Core> create_core(const std::string& model, const std
   bevfusion::camera::PostProcParameter post_proc;
   post_proc.height = sample_grid.output_height;
   post_proc.width = sample_grid.output_width;
-  post_proc.num_classes = 6;
+  post_proc.num_classes = 1;
   post_proc.resolusion = 0.5f;
   post_proc.x_start = -50.0f;
   post_proc.y_start = -50.0f;
@@ -135,7 +135,8 @@ std::shared_ptr<bevfusion::Core> create_core(const std::string& model, const std
 
 int main(int argc, char** argv) {
 
-  const char* data      = "example-data";
+  const char* data      = "deploy_data";
+  // const char* model     = "seg_camera_only_resnet50";
   const char* model     = "seg_camera_only_resnet50_ge_bev_output_scope_0.5";
   const char* precision = "fp16";
 
@@ -156,22 +157,20 @@ int main(int argc, char** argv) {
   core->set_timer(true);
 
   // Load matrix to host
-  auto camera2lidar = nv::Tensor::load(nv::format("%s/camera2lidar.tensor", data), false);
-  auto camera_intrinsics = nv::Tensor::load(nv::format("%s/camera_intrinsics.tensor", data), false);
-  auto lidar2image = nv::Tensor::load(nv::format("%s/lidar2image.tensor", data), false);
-  auto img_aug_matrix = nv::Tensor::load(nv::format("%s/img_aug_matrix.tensor", data), false);
-  core->update(camera2lidar.ptr<float>(), camera_intrinsics.ptr<float>(), img_aug_matrix.ptr<float>(), stream);
-  // core->free_excess_memory();
+  auto camera2lidar = load_data_from_file(nv::format("model/%s/%s/camera2lidar.txt", model, data));
+  auto camera_intrinsics = load_data_from_file(nv::format("model/%s/%s/camera_intrinsics.txt", model, data));
+  auto img_aug_matrix = load_data_from_file(nv::format("model/%s/%s/img_aug_matrix.txt", model, data));
+  core->update(camera2lidar.data(), camera_intrinsics.data(), img_aug_matrix.data(), stream);
 
   // Load image and lidar to host
-  auto images = load_images(data);
+  auto images = load_images(nv::format("model/%s/%s/", model, data));
   
   // warmup
   const float* bev_points =
       core->forward((const unsigned char**)images.data(), stream);
 
-  std::string save_path = 
-  "/media/gpal/8e78e258-6a68-4733-8ec2-b837743b11e6/workspace/github/Lidar_AI_Solution/CUDA-BEVFusion/model/seg_camera_only_resnet50/assets/seg_points_2.pcd";
+  std::string save_path = nv::format(
+  "/media/gpal/8e78e258-6a68-4733-8ec2-b837743b11e6/workspace/github/Lidar_AI_Solution/CUDA-BEVFusion/model/%s/assets/seg_points.pcd", model);
   int num_points = 200*200;
   save_pcd(bev_points, num_points, save_path);
 
